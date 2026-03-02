@@ -1,5 +1,8 @@
 project_name: dbf-reader
 release:
+  github:
+    owner: ThanatosSystemOmegaVI
+    name: DBF-To-CSV
   name_template: '{{.Tag}}'
 builds:
   - id: dbf-reader

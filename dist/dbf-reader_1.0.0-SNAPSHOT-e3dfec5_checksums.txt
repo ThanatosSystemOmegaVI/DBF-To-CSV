@@ -1,0 +1,6 @@
+0137ee436dc180671541aabe873b764e197dc4581660eea728fd9468cfcdf00c  dbf-reader_1.0.0-SNAPSHOT-e3dfec5_linux_amd64.deb
+2a92895fe25dc0a3f1d62ff94465412c00cbcd68fa7c8b8cc16042b6984cc9e5  dbf-reader_1.0.0-SNAPSHOT-e3dfec5_linux_amd64.rpm
+d88160add04a252214999ae62477f0c762ab5dc2d41b0a806b90355360003d54  dbf-reader_1.0.0-SNAPSHOT-e3dfec5_linux_amd64.tar.gz
+5501332885c6c43e0170d2c2ca41cb731f8e345e4e655d496f77652af4fbc30f  dbf-reader_1.0.0-SNAPSHOT-e3dfec5_linux_arm64.deb
+18fc632c94e9253c2db70a3b4977448480330182948c377d45037ff9fc0dc730  dbf-reader_1.0.0-SNAPSHOT-e3dfec5_linux_arm64.rpm
+f5b8bd87a33bbdad182d96b6220c49a4b64825a31c19544e69083d4d209b7a98  dbf-reader_1.0.0-SNAPSHOT-e3dfec5_linux_arm64.tar.gz
