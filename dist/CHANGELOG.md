@@ -1,5 +1,0 @@
-## Changelog
-* 8ffc077d6515c39149ab0ff9ced15fa28dd74f79 update
-* a69320c253c6b5ea1bfacc12115243ad5e82f93c update
-* e3dfec5c117968fcfd631e823033f3542c47e62d Init
-* 2600362ac44dab176e2b095f073b33dd18c8497f Initial commit
