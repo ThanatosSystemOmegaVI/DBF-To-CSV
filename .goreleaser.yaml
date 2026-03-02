@@ -1,0 +1,28 @@
+project_name: dbf-reader
+
+builds:
+  - id: dbf-reader
+    main: .
+    binary: dbf-reader
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+nfpms:
+  - id: dbf-reader
+    package_name: dbf-reader
+    builds:
+      - dbf-reader
+    formats:
+      - deb
+      - rpm
+    vendor: "plutonicvoid"
+    homepage: "https://github.com/ThanatosSystemOmegaVI/DBF-To-CSV"
+    maintainer: "plutonicvoid"
+    description: "Convert DBF files to CSV"
+    license: "MIT"
+    bindir: /usr/bin

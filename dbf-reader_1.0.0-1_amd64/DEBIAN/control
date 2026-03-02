@@ -1,0 +1,8 @@
+Package: dbf-reader
+Version: 1.0.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: PlutonicVoid <peter@thesequel.nl>
+Description: Convert DBF files to CSV
+ A simple CLI tool that converts .DBF files to CSV format.
