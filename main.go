@@ -79,7 +79,7 @@ func main() {
 
 	// Records
 	for {
-		rec, deleted, err := rd.Next()
+		rownum, rec, deleted, err := rd.Next()
 		if err == io.EOF {
 			break
 		}
