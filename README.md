@@ -3,9 +3,12 @@ Convert DBF files to CSV
 
 
 # usage
+```
 ❯ dbf-reader path/to/finput.DBF > /path/to/output.csv
+```
+```
 ❯ dbf-reader -include-deleted /path/to/input.DBF > /path/to/output.csv
-
+```
 
 # install
 - get the .deb, or .rpm from the release tags
