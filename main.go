@@ -30,6 +30,7 @@ func main() {
 
 	inFlag := flag.String("i", "", "Input DBF file path (optional if provided as positional arg)")
 	outFlag := flag.String("o", "", "Output CSV file path (optional; default is stdout)")
+	includeDeleted := flag.Bool("include-deleted", false, "Include records marked as deleted (*)")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -85,7 +86,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if deleted {
+
+		// Skip deleted/tombstoned lines only if include-deleted is false
+		if deleted && !*includeDeleted {
 			continue
 		}
 
