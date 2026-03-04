@@ -68,10 +68,10 @@ func main() {
 	defer w.Flush()
 
 	// Header
-	fields := rd.Fields()
-	header := make([]string, len(fields))
+	header := make([]string, len(fields)+1)
+	header[0] = "__row"
 	for i, f := range fields {
-		header[i] = f.Name
+		header[i+1] = f.Name
 	}
 	if err := w.Write(header); err != nil {
 		log.Fatal(err)
@@ -92,9 +92,11 @@ func main() {
 			continue
 		}
 
-		row := make([]string, len(fields))
+		row := make([]string, len(fields)+1)
+		row[0] = fmt.Sprintf("%d", rownum)
+		
 		for i, f := range fields {
-			row[i] = rec[f.Name]
+			row[i+1] = rec[f.Name]
 		}
 		if err := w.Write(row); err != nil {
 			log.Fatal(err)
