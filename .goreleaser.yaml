@@ -23,7 +23,7 @@ nfpms:
       - rpm
     vendor: "plutonicvoid"
     homepage: "https://github.com/ThanatosSystemOmegaVI/DBF-To-CSV"
-    maintainer: "plutonicvoid"
+    maintainer: "plutonicvoid/ThanatosSystemOmegaVI"
     description: "Convert DBF files to CSV"
     license: "MIT"
     bindir: /usr/bin
