@@ -31,6 +31,7 @@ type Reader struct {
 	r      *bufio.Reader
 	hdr    Header
 	fields []Field
+	row    uint32
 }
 
 func Open(path string) (*Reader, func() error, error) {
@@ -134,21 +135,22 @@ func (rd *Reader) readFields() error {
 type Record map[string]string
 
 // Next reads the next record. It returns (nil, io.EOF) when done.
-func (rd *Reader) Next() (Record, bool, error) {
-	// One record is RecordLength bytes. First byte is deletion flag.
+func (rd *Reader) Next() (uint32, Record, bool, error) {
 	recLen := int(rd.hdr.RecordLength)
 	if recLen <= 1 {
-		return nil, false, fmt.Errorf("invalid record length: %d", recLen)
+		return 0, nil, false, fmt.Errorf("invalid record length: %d", recLen)
 	}
 
 	buf := make([]byte, recLen)
 	_, err := io.ReadFull(rd.r, buf)
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return nil, false, io.EOF
+			return 0, nil, false, io.EOF
 		}
-		return nil, false, fmt.Errorf("read record: %w", err)
+		return 0, nil, false, fmt.Errorf("read record: %w", err)
 	}
+
+	rd.row++
 
 	deleted := buf[0] == '*'
 	payload := buf[1:]
@@ -158,7 +160,7 @@ func (rd *Reader) Next() (Record, bool, error) {
 		start := f.Offset
 		end := start + int(f.Length)
 		if end > len(payload) || start < 0 {
-			return nil, deleted, fmt.Errorf("field %s out of bounds", f.Name)
+			return rd.row, nil, deleted, fmt.Errorf("field %s out of bounds", f.Name)
 		}
 		raw := payload[start:end]
 
@@ -166,5 +168,5 @@ func (rd *Reader) Next() (Record, bool, error) {
 		out[f.Name] = strings.TrimSpace(string(raw))
 	}
 
-	return out, deleted, nil
+	return rd.row, out, deleted, nil
 }
