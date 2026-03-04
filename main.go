@@ -21,6 +21,7 @@ Usage:
 Examples:
   dbf-reader /path/to/input.DBF > /path/to/output.csv
   dbf-reader -i /path/to/input.DBF -o /path/to/output.csv
+  dbf-reader -include-deleted /path/to/input.DBF > /path/to/output.csv
 `)
 	flag.PrintDefaults()
 }
@@ -51,6 +52,8 @@ func main() {
 	}
 	defer closeFn()
 
+	fields := rd.Fields()
+
 	// Output destination
 	var out io.Writer = os.Stdout
 	var outFile *os.File
@@ -69,7 +72,7 @@ func main() {
 
 	// Header
 	header := make([]string, len(fields)+1)
-	header[0] = "__row"
+	header[0] = "row_index"
 	for i, f := range fields {
 		header[i+1] = f.Name
 	}
@@ -94,7 +97,7 @@ func main() {
 
 		row := make([]string, len(fields)+1)
 		row[0] = fmt.Sprintf("%d", rownum)
-		
+
 		for i, f := range fields {
 			row[i+1] = rec[f.Name]
 		}
