@@ -21,6 +21,7 @@ Usage:
 Examples:
   dbf-reader /path/to/input.DBF > /path/to/output.csv
   dbf-reader -i /path/to/input.DBF -o /path/to/output.csv
+  dbf-reader -include-deleted /path/to/input.DBF > /path/to/output.csv
 `)
 	flag.PrintDefaults()
 }
@@ -30,6 +31,7 @@ func main() {
 
 	inFlag := flag.String("i", "", "Input DBF file path (optional if provided as positional arg)")
 	outFlag := flag.String("o", "", "Output CSV file path (optional; default is stdout)")
+	includeDeleted := flag.Bool("include-deleted", false, "Include records marked as deleted (*)")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -50,6 +52,8 @@ func main() {
 	}
 	defer closeFn()
 
+	fields := rd.Fields()
+
 	// Output destination
 	var out io.Writer = os.Stdout
 	var outFile *os.File
@@ -67,10 +71,10 @@ func main() {
 	defer w.Flush()
 
 	// Header
-	fields := rd.Fields()
-	header := make([]string, len(fields))
+	header := make([]string, len(fields)+1)
+	header[0] = "row_index"
 	for i, f := range fields {
-		header[i] = f.Name
+		header[i+1] = f.Name
 	}
 	if err := w.Write(header); err != nil {
 		log.Fatal(err)
@@ -78,20 +82,24 @@ func main() {
 
 	// Records
 	for {
-		rec, deleted, err := rd.Next()
+		rownum, rec, deleted, err := rd.Next()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			log.Fatal(err)
 		}
-		if deleted {
+
+		// Skip deleted/tombstoned lines only if include-deleted is false
+		if deleted && !*includeDeleted {
 			continue
 		}
 
-		row := make([]string, len(fields))
+		row := make([]string, len(fields)+1)
+		row[0] = fmt.Sprintf("%d", rownum)
+
 		for i, f := range fields {
-			row[i] = rec[f.Name]
+			row[i+1] = rec[f.Name]
 		}
 		if err := w.Write(row); err != nil {
 			log.Fatal(err)
