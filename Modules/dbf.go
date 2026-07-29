@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// memoFieldType marks a field whose value is a reference into the .FPT/.DBT file.
+const memoFieldType = byte('M')
+
 type Field struct {
 	Name     string
 	Type     byte
@@ -32,6 +35,7 @@ type Reader struct {
 	hdr    Header
 	fields []Field
 	row    uint32
+	memo   *memoFile
 	enc    Encoding
 }
 
@@ -46,8 +50,6 @@ func OpenWithEncoding(path string, enc Encoding) (*Reader, func() error, error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	closer := func() error { return f.Close() }
-
 	br := bufio.NewReaderSize(f, 256*1024)
 	rd := &Reader{r: br, enc: enc}
 
@@ -70,7 +72,28 @@ func OpenWithEncoding(path string, enc Encoding) (*Reader, func() error, error) 
 	}
 	br.Reset(f)
 
+	if rd.hasMemoField() {
+		if rd.memo, err = openMemoFile(path); err != nil {
+			_ = f.Close()
+			return nil, nil, err
+		}
+	}
+
+	closer := func() error {
+		_ = rd.memo.Close()
+		return f.Close()
+	}
+
 	return rd, closer, nil
+}
+
+func (rd *Reader) hasMemoField() bool {
+	for _, f := range rd.fields {
+		if f.Type == memoFieldType {
+			return true
+		}
+	}
+	return false
 }
 
 func (rd *Reader) Header() Header     { return rd.hdr }
@@ -176,6 +199,16 @@ func (rd *Reader) Next() (uint32, Record, bool, error) {
 
 		// Values stay strings on purpose: the DBF carries dates, numbers and
 		// logicals as text and the consumers parse them themselves.
+		if f.Type == memoFieldType && rd.memo != nil {
+			text, err := rd.memo.text(raw, rd.enc)
+			if err != nil {
+				return rd.row, nil, deleted, fmt.Errorf("field %s: %w", f.Name, err)
+			}
+
+			out[f.Name] = strings.TrimSpace(text)
+			continue
+		}
+
 		out[f.Name] = strings.TrimSpace(decode(raw, rd.enc))
 	}
 

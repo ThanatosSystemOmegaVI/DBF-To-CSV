@@ -172,3 +172,82 @@ func TestParseEncoding(t *testing.T) {
 		}
 	}
 }
+
+// buildFPT writes a FoxPro memo file whose block n holds texts[n].
+func buildFPT(t *testing.T, path string, blockSize int, texts map[int]string) {
+	t.Helper()
+
+	highest := 0
+	for block := range texts {
+		if block > highest {
+			highest = block
+		}
+	}
+
+	out := make([]byte, blockSize*(highest+1))
+	binary.BigEndian.PutUint32(out[0:4], uint32(highest+1))
+	binary.BigEndian.PutUint16(out[6:8], uint16(blockSize))
+
+	for block, text := range texts {
+		offset := block * blockSize
+		binary.BigEndian.PutUint32(out[offset:offset+4], fptTypeText)
+		binary.BigEndian.PutUint32(out[offset+4:offset+8], uint32(len(text)))
+		copy(out[offset+8:], text)
+	}
+
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		t.Fatalf("write fpt: %v", err)
+	}
+}
+
+// A memo field must export its text, not the block number it references.
+func TestMemoFieldResolvesToText(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "memo.dbf")
+
+	buildDBF(t, path, []testField{{"ARTOMS", 'M', 10}}, []testRecord{
+		{values: [][]byte{[]byte("         1")}},
+		{values: [][]byte{[]byte("         2")}},
+		{values: [][]byte{[]byte("          ")}},
+	}, 0)
+	buildFPT(t, filepath.Join(dir, "memo.FPT"), 512, map[int]string{
+		1: "Bevestiging sturen naar info@example.nl",
+		2: "Zie bijlage voor wienersprosse",
+	})
+
+	rd, closeFn, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer closeFn()
+
+	got := readAll(t, rd)
+	if got[0]["ARTOMS"] != "Bevestiging sturen naar info@example.nl" {
+		t.Fatalf("first memo = %q", got[0]["ARTOMS"])
+	}
+	if got[1]["ARTOMS"] != "Zie bijlage voor wienersprosse" {
+		t.Fatalf("second memo = %q", got[1]["ARTOMS"])
+	}
+	if got[2]["ARTOMS"] != "" {
+		t.Fatalf("empty memo reference = %q, want empty", got[2]["ARTOMS"])
+	}
+}
+
+// Without a memo file the raw reference is kept rather than failing the export.
+func TestMemoFieldWithoutMemoFileKeepsRawValue(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nomemo.dbf")
+
+	buildDBF(t, path, []testField{{"ARTOMS", 'M', 10}}, []testRecord{
+		{values: [][]byte{[]byte("         7")}},
+	}, 0)
+
+	rd, closeFn, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer closeFn()
+
+	if got := readAll(t, rd); got[0]["ARTOMS"] != "7" {
+		t.Fatalf("got %q, want the raw reference 7", got[0]["ARTOMS"])
+	}
+}
