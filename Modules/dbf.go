@@ -53,12 +53,15 @@ func Open(path string) (*Reader, func() error, error) {
 		return nil, nil, err
 	}
 
-	// Ensure we are positioned at start of record area.
-	// HeaderLength counts from file start to first record.
-	// We've read some bytes already; simplest is to seek, but we’re using bufio.
-	// So: reopen with os.File and Seek in a different constructor if you want perfect positioning.
-	// This minimal version assumes we’ve consumed exactly headerLength bytes after readFields.
-	// (readFields reads until 0x0D and then consumes the header terminator; matches typical DBF.)
+	// Seek to the record area rather than assuming the field descriptors ended
+	// exactly there: a header can carry padding or a Visual FoxPro backlink block
+	// after the 0x0D terminator, and reading straight on would silently misalign
+	// every record.
+	if _, err := f.Seek(int64(rd.hdr.HeaderLength), io.SeekStart); err != nil {
+		_ = f.Close()
+		return nil, nil, fmt.Errorf("seek to record area: %w", err)
+	}
+	br.Reset(f)
 
 	return rd, closer, nil
 }
