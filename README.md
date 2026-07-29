@@ -20,6 +20,11 @@ not being able to tell them apart:
 ❯ dbf-reader -include-deleted -deleted-column /path/to/input.DBF > /path/to/output.csv
 ```
 
+Show the installed version:
+```
+❯ dbf-reader -v
+```
+
 Export the raw bytes instead of decoding them, as earlier releases did:
 ```
 ❯ dbf-reader -encoding raw /path/to/input.DBF > /path/to/output.csv

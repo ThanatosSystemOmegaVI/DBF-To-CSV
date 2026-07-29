@@ -9,6 +9,7 @@ import (
 	"os"
 
 	dbf "DBFreader/Modules"
+	"DBFreader/internal/version"
 )
 
 func usage() {
@@ -17,12 +18,14 @@ func usage() {
 Usage:
   dbf-reader [options] <input.DBF>            (writes CSV to stdout)
   dbf-reader -i <input.DBF> -o <output.csv>  (writes CSV to a file)
+  dbf-reader -v                             (prints the current version)
 
 Examples:
   dbf-reader /path/to/input.DBF > /path/to/output.csv
   dbf-reader -i /path/to/input.DBF -o /path/to/output.csv
   dbf-reader -include-deleted /path/to/input.DBF > /path/to/output.csv
   dbf-reader -include-deleted -deleted-column /path/to/input.DBF > /path/to/output.csv
+  dbf-reader -v
 `)
 	flag.PrintDefaults()
 }
@@ -35,8 +38,14 @@ func main() {
 	includeDeleted := flag.Bool("include-deleted", false, "Include records marked as deleted (*)")
 	deletedColumn := flag.Bool("deleted-column", false, "Append an is_deleted column: 1 for a deleted record, 0 otherwise")
 	encodingFlag := flag.String("encoding", "cp1252", "Character encoding of the field bytes: cp1252 or raw")
+	versionFlag := flag.Bool("v", false, "Print the current version")
 	flag.Usage = usage
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println(version.String())
+		return
+	}
 
 	encoding, ok := dbf.ParseEncoding(*encodingFlag)
 	if !ok {

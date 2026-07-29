@@ -5,6 +5,8 @@ builds:
   - id: dbf-reader
     main: .
     binary: dbf-reader
+    ldflags:
+      - -X DBFreader/internal/version.version={{ .Version }}
     env:
       - CGO_ENABLED=0
     goos:
