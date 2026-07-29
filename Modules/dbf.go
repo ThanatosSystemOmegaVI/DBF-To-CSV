@@ -14,6 +14,14 @@ import (
 // memoFieldType marks a field whose value is a reference into the .FPT/.DBT file.
 const memoFieldType = byte('M')
 
+// fieldPadding is what writers use to pad a fixed-width field. Some pad with NUL
+// instead of spaces, and a NUL byte in a text column is never content.
+const fieldPadding = " \t\r\n\x00"
+
+func trimPadding(value string) string {
+	return strings.Trim(value, fieldPadding)
+}
+
 type Field struct {
 	Name     string
 	Type     byte
@@ -205,11 +213,11 @@ func (rd *Reader) Next() (uint32, Record, bool, error) {
 				return rd.row, nil, deleted, fmt.Errorf("field %s: %w", f.Name, err)
 			}
 
-			out[f.Name] = strings.TrimSpace(text)
+			out[f.Name] = trimPadding(text)
 			continue
 		}
 
-		out[f.Name] = strings.TrimSpace(decode(raw, rd.enc))
+		out[f.Name] = trimPadding(decode(raw, rd.enc))
 	}
 
 	return rd.row, out, deleted, nil

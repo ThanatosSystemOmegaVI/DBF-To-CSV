@@ -251,3 +251,21 @@ func TestMemoFieldWithoutMemoFileKeepsRawValue(t *testing.T) {
 		t.Fatalf("got %q, want the raw reference 7", got[0]["ARTOMS"])
 	}
 }
+
+func TestTrimsNulPadding(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nul.dbf")
+
+	buildDBF(t, path, []testField{{"CODE", 'C', 6}}, []testRecord{
+		{values: [][]byte{{'A', 'B', 0x00, 0x00, 0x00, 0x00}}},
+	}, 0)
+
+	rd, closeFn, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer closeFn()
+
+	if got := readAll(t, rd)[0]["CODE"]; got != "AB" {
+		t.Fatalf("got %q, want %q", got, "AB")
+	}
+}
