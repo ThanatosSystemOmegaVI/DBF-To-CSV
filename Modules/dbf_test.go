@@ -269,3 +269,46 @@ func TestTrimsNulPadding(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, "AB")
 	}
 }
+
+// row_index is 1-based and deleted records are reported, not skipped.
+func TestRowIndexAndDeletedFlag(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "deleted.dbf")
+
+	buildDBF(t, path, []testField{{"CODE", 'C', 1}}, []testRecord{
+		{values: [][]byte{[]byte("A")}},
+		{deleted: true, values: [][]byte{[]byte("B")}},
+		{values: [][]byte{[]byte("C")}},
+	}, 0)
+
+	rd, closeFn, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer closeFn()
+
+	wantDeleted := map[uint32]bool{1: false, 2: true, 3: false}
+	seen := 0
+
+	for {
+		row, _, deleted, err := rd.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("next: %v", err)
+		}
+
+		want, known := wantDeleted[row]
+		if !known {
+			t.Fatalf("unexpected row_index %d", row)
+		}
+		if deleted != want {
+			t.Fatalf("row %d deleted = %v, want %v", row, deleted, want)
+		}
+		seen++
+	}
+
+	if seen != 3 {
+		t.Fatalf("read %d records, want 3", seen)
+	}
+}

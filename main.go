@@ -22,6 +22,7 @@ Examples:
   dbf-reader /path/to/input.DBF > /path/to/output.csv
   dbf-reader -i /path/to/input.DBF -o /path/to/output.csv
   dbf-reader -include-deleted /path/to/input.DBF > /path/to/output.csv
+  dbf-reader -include-deleted -deleted-column /path/to/input.DBF > /path/to/output.csv
 `)
 	flag.PrintDefaults()
 }
@@ -32,6 +33,7 @@ func main() {
 	inFlag := flag.String("i", "", "Input DBF file path (optional if provided as positional arg)")
 	outFlag := flag.String("o", "", "Output CSV file path (optional; default is stdout)")
 	includeDeleted := flag.Bool("include-deleted", false, "Include records marked as deleted (*)")
+	deletedColumn := flag.Bool("deleted-column", false, "Append an is_deleted column: 1 for a deleted record, 0 otherwise")
 	encodingFlag := flag.String("encoding", "cp1252", "Character encoding of the field bytes: cp1252 or raw")
 	flag.Usage = usage
 	flag.Parse()
@@ -77,10 +79,18 @@ func main() {
 	defer w.Flush()
 
 	// Header
-	header := make([]string, len(fields)+1)
+	columns := len(fields) + 1
+	if *deletedColumn {
+		columns++
+	}
+
+	header := make([]string, columns)
 	header[0] = "row_index"
 	for i, f := range fields {
 		header[i+1] = f.Name
+	}
+	if *deletedColumn {
+		header[columns-1] = "is_deleted"
 	}
 	if err := w.Write(header); err != nil {
 		log.Fatal(err)
@@ -101,11 +111,17 @@ func main() {
 			continue
 		}
 
-		row := make([]string, len(fields)+1)
+		row := make([]string, columns)
 		row[0] = fmt.Sprintf("%d", rownum)
 
 		for i, f := range fields {
 			row[i+1] = rec[f.Name]
+		}
+		if *deletedColumn {
+			row[columns-1] = "0"
+			if deleted {
+				row[columns-1] = "1"
+			}
 		}
 		if err := w.Write(row); err != nil {
 			log.Fatal(err)
