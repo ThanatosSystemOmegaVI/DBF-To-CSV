@@ -116,3 +116,59 @@ func TestReadsRecordsWhenHeaderHasPadding(t *testing.T) {
 		t.Fatalf("records misaligned: %q, %q", got[0]["CODE"], got[1]["CODE"])
 	}
 }
+
+// Field bytes are Windows-1252: 0x80 is the euro sign, not a control character.
+func TestDecodesWindows1252(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "encoding.dbf")
+
+	buildDBF(t, path, []testField{{"OMS", 'C', 12}}, []testRecord{
+		{values: [][]byte{{'P', 'r', 'i', 'j', 's', ' ', 0x80, '3', '6', ',', 0xE9}}},
+	}, 0)
+
+	rd, closeFn, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer closeFn()
+
+	if got := readAll(t, rd)[0]["OMS"]; got != "Prijs €36,é" {
+		t.Fatalf("got %q, want %q", got, "Prijs €36,é")
+	}
+}
+
+func TestRawEncodingLeavesBytesUntouched(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "raw.dbf")
+
+	buildDBF(t, path, []testField{{"OMS", 'C', 2}}, []testRecord{
+		{values: [][]byte{{0xE9, 'x'}}},
+	}, 0)
+
+	rd, closeFn, err := OpenWithEncoding(path, EncodingRaw)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer closeFn()
+
+	if got := readAll(t, rd)[0]["OMS"]; got != "\xe9x" {
+		t.Fatalf("got %q, want the undecoded bytes", got)
+	}
+}
+
+func TestParseEncoding(t *testing.T) {
+	for _, tc := range []struct {
+		in    string
+		want  Encoding
+		valid bool
+	}{
+		{"", EncodingWindows1252, true},
+		{"cp1252", EncodingWindows1252, true},
+		{"Windows-1252", EncodingWindows1252, true},
+		{"raw", EncodingRaw, true},
+		{"utf8", EncodingWindows1252, false},
+	} {
+		got, ok := ParseEncoding(tc.in)
+		if ok != tc.valid || got != tc.want {
+			t.Fatalf("ParseEncoding(%q) = %v, %v; want %v, %v", tc.in, got, ok, tc.want, tc.valid)
+		}
+	}
+}

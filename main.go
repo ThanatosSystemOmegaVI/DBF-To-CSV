@@ -32,8 +32,14 @@ func main() {
 	inFlag := flag.String("i", "", "Input DBF file path (optional if provided as positional arg)")
 	outFlag := flag.String("o", "", "Output CSV file path (optional; default is stdout)")
 	includeDeleted := flag.Bool("include-deleted", false, "Include records marked as deleted (*)")
+	encodingFlag := flag.String("encoding", "cp1252", "Character encoding of the field bytes: cp1252 or raw")
 	flag.Usage = usage
 	flag.Parse()
+
+	encoding, ok := dbf.ParseEncoding(*encodingFlag)
+	if !ok {
+		log.Fatalf("unknown encoding %q: use cp1252 or raw", *encodingFlag)
+	}
 
 	// Determine input path
 	inPath := *inFlag
@@ -46,7 +52,7 @@ func main() {
 	}
 
 	// Open DBF
-	rd, closeFn, err := dbf.Open(inPath)
+	rd, closeFn, err := dbf.OpenWithEncoding(inPath, encoding)
 	if err != nil {
 		log.Fatal(err)
 	}

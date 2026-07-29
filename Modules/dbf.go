@@ -32,9 +32,16 @@ type Reader struct {
 	hdr    Header
 	fields []Field
 	row    uint32
+	enc    Encoding
 }
 
+// Open reads a DBF and decodes field bytes as Windows-1252.
 func Open(path string) (*Reader, func() error, error) {
+	return OpenWithEncoding(path, EncodingWindows1252)
+}
+
+// OpenWithEncoding reads a DBF using the given encoding for field bytes.
+func OpenWithEncoding(path string, enc Encoding) (*Reader, func() error, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, err
@@ -42,7 +49,7 @@ func Open(path string) (*Reader, func() error, error) {
 	closer := func() error { return f.Close() }
 
 	br := bufio.NewReaderSize(f, 256*1024)
-	rd := &Reader{r: br}
+	rd := &Reader{r: br, enc: enc}
 
 	if err := rd.readHeader(); err != nil {
 		_ = f.Close()
@@ -167,8 +174,9 @@ func (rd *Reader) Next() (uint32, Record, bool, error) {
 		}
 		raw := payload[start:end]
 
-		// For a first version: return trimmed string; type-specific parsing can be layered on.
-		out[f.Name] = strings.TrimSpace(string(raw))
+		// Values stay strings on purpose: the DBF carries dates, numbers and
+		// logicals as text and the consumers parse them themselves.
+		out[f.Name] = strings.TrimSpace(decode(raw, rd.enc))
 	}
 
 	return rd.row, out, deleted, nil
