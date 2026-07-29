@@ -11,6 +11,17 @@ import (
 	"time"
 )
 
+// memoFieldType marks a field whose value is a reference into the .FPT/.DBT file.
+const memoFieldType = byte('M')
+
+// fieldPadding is what writers use to pad a fixed-width field. Some pad with NUL
+// instead of spaces, and a NUL byte in a text column is never content.
+const fieldPadding = " \t\r\n\x00"
+
+func trimPadding(value string) string {
+	return strings.Trim(value, fieldPadding)
+}
+
 type Field struct {
 	Name     string
 	Type     byte
@@ -32,17 +43,23 @@ type Reader struct {
 	hdr    Header
 	fields []Field
 	row    uint32
+	memo   *memoFile
+	enc    Encoding
 }
 
+// Open reads a DBF and decodes field bytes as Windows-1252.
 func Open(path string) (*Reader, func() error, error) {
+	return OpenWithEncoding(path, EncodingWindows1252)
+}
+
+// OpenWithEncoding reads a DBF using the given encoding for field bytes.
+func OpenWithEncoding(path string, enc Encoding) (*Reader, func() error, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	closer := func() error { return f.Close() }
-
 	br := bufio.NewReaderSize(f, 256*1024)
-	rd := &Reader{r: br}
+	rd := &Reader{r: br, enc: enc}
 
 	if err := rd.readHeader(); err != nil {
 		_ = f.Close()
@@ -53,14 +70,38 @@ func Open(path string) (*Reader, func() error, error) {
 		return nil, nil, err
 	}
 
-	// Ensure we are positioned at start of record area.
-	// HeaderLength counts from file start to first record.
-	// We've read some bytes already; simplest is to seek, but we’re using bufio.
-	// So: reopen with os.File and Seek in a different constructor if you want perfect positioning.
-	// This minimal version assumes we’ve consumed exactly headerLength bytes after readFields.
-	// (readFields reads until 0x0D and then consumes the header terminator; matches typical DBF.)
+	// Seek to the record area rather than assuming the field descriptors ended
+	// exactly there: a header can carry padding or a Visual FoxPro backlink block
+	// after the 0x0D terminator, and reading straight on would silently misalign
+	// every record.
+	if _, err := f.Seek(int64(rd.hdr.HeaderLength), io.SeekStart); err != nil {
+		_ = f.Close()
+		return nil, nil, fmt.Errorf("seek to record area: %w", err)
+	}
+	br.Reset(f)
+
+	if rd.hasMemoField() {
+		if rd.memo, err = openMemoFile(path); err != nil {
+			_ = f.Close()
+			return nil, nil, err
+		}
+	}
+
+	closer := func() error {
+		_ = rd.memo.Close()
+		return f.Close()
+	}
 
 	return rd, closer, nil
+}
+
+func (rd *Reader) hasMemoField() bool {
+	for _, f := range rd.fields {
+		if f.Type == memoFieldType {
+			return true
+		}
+	}
+	return false
 }
 
 func (rd *Reader) Header() Header     { return rd.hdr }
@@ -164,8 +205,19 @@ func (rd *Reader) Next() (uint32, Record, bool, error) {
 		}
 		raw := payload[start:end]
 
-		// For a first version: return trimmed string; type-specific parsing can be layered on.
-		out[f.Name] = strings.TrimSpace(string(raw))
+		// Values stay strings on purpose: the DBF carries dates, numbers and
+		// logicals as text and the consumers parse them themselves.
+		if f.Type == memoFieldType && rd.memo != nil {
+			text, err := rd.memo.text(raw, rd.enc)
+			if err != nil {
+				return rd.row, nil, deleted, fmt.Errorf("field %s: %w", f.Name, err)
+			}
+
+			out[f.Name] = trimPadding(text)
+			continue
+		}
+
+		out[f.Name] = trimPadding(decode(raw, rd.enc))
 	}
 
 	return rd.row, out, deleted, nil
